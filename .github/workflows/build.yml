@@ -77,13 +77,13 @@ jobs:
             void run(PluginCall c) {
               JSArray a = new JSArray();
               String sel = MediaStore.Audio.Media.IS_MUSIC + "!=0 AND " + MediaStore.Audio.Media.DURATION + ">=30000";
-              String[] cols = {MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM};
+              String[] cols = {MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DATE_ADDED};
               try (Cursor q = getContext().getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cols, sel, null, MediaStore.Audio.Media.TITLE)) {
                 while (q != null && q.moveToNext()) {
                   if (q.getString(0) == null) continue;
                   JSObject o = new JSObject(); String ar = q.getString(2);
                   o.put("path", q.getString(0)); o.put("title", q.getString(1));
-                  o.put("artist", ar == null || ar.equals("<unknown>") ? "Unknown artist" : ar); o.put("album", q.getString(3));
+                  o.put("artist", ar == null || ar.equals("<unknown>") ? "Unknown artist" : ar); o.put("album", q.getString(3)); o.put("added", q.getLong(4) * 1000);
                   a.put(o);
                 }
               } catch (Exception e) { c.reject(String.valueOf(e.getMessage())); return; }
