@@ -21,7 +21,7 @@ jobs:
         run: |
           D=android/app/src/main/java/com/myplayer/music
           M=android/app/src/main/AndroidManifest.xml
-          sed -i 's#<application#<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><application#' $M
+          sed -i 's#<application#<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/><uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/><application#' $M
           sed -i 's#</application>#<service android:name=".MusicService" android:foregroundServiceType="mediaPlayback" android:exported="false"/></application>#' $M
           cat > $D/MainActivity.java <<'EOF'
           package com.myplayer.music;
@@ -38,12 +38,19 @@ jobs:
           cat > $D/MusicPlugin.java <<'EOF'
           package com.myplayer.music;
           import android.content.Intent;
+          import android.database.Cursor;
+          import android.os.Build;
+          import android.provider.MediaStore;
+          import com.getcapacitor.JSArray;
           import com.getcapacitor.JSObject;
+          import com.getcapacitor.PermissionState;
+          import com.getcapacitor.annotation.Permission;
+          import com.getcapacitor.annotation.PermissionCallback;
           import com.getcapacitor.Plugin;
           import com.getcapacitor.PluginCall;
           import com.getcapacitor.PluginMethod;
           import com.getcapacitor.annotation.CapacitorPlugin;
-          @CapacitorPlugin(name = "Music")
+          @CapacitorPlugin(name = "Music", permissions = {@Permission(alias = "a33", strings = {"android.permission.READ_MEDIA_AUDIO"}), @Permission(alias = "a32", strings = {"android.permission.READ_EXTERNAL_STORAGE"})})
           public class MusicPlugin extends Plugin {
             static MusicPlugin inst;
             @Override public void load() { inst = this; }
@@ -57,6 +64,34 @@ jobs:
               i.putExtra("art", c.getString("art", ""));
               if (MusicService.inst != null) MusicService.inst.apply(i);
               else getContext().startForegroundService(i);
+              c.resolve();
+            }
+                      @PluginMethod public void scan(PluginCall c) {
+              String al = Build.VERSION.SDK_INT >= 33 ? "a33" : "a32";
+              if (getPermissionState(al) == PermissionState.GRANTED) run(c); else requestPermissionForAlias(al, c, "permDone");
+            }
+            @PermissionCallback private void permDone(PluginCall c) {
+              String al = Build.VERSION.SDK_INT >= 33 ? "a33" : "a32";
+              if (getPermissionState(al) == PermissionState.GRANTED) run(c); else c.reject("denied");
+            }
+            void run(PluginCall c) {
+              JSArray a = new JSArray();
+              String sel = MediaStore.Audio.Media.IS_MUSIC + "!=0 AND " + MediaStore.Audio.Media.DURATION + ">=30000";
+              String[] cols = {MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM};
+              try (Cursor q = getContext().getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cols, sel, null, MediaStore.Audio.Media.TITLE)) {
+                while (q != null && q.moveToNext()) {
+                  if (q.getString(0) == null) continue;
+                  JSObject o = new JSObject(); String ar = q.getString(2);
+                  o.put("path", q.getString(0)); o.put("title", q.getString(1));
+                  o.put("artist", ar == null || ar.equals("<unknown>") ? "Unknown artist" : ar); o.put("album", q.getString(3));
+                  a.put(o);
+                }
+              } catch (Exception e) { c.reject(String.valueOf(e.getMessage())); return; }
+              JSObject r = new JSObject(); r.put("songs", a); c.resolve(r);
+            }
+            @PluginMethod public void bar(PluginCall c) {
+              final String col = c.getString("color", "#000000");
+              getActivity().runOnUiThread(() -> { try { getActivity().getWindow().setStatusBarColor(android.graphics.Color.parseColor(col)); } catch (Exception e) {} });
               c.resolve();
             }
             static void fire(String a) {
