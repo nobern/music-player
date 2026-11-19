@@ -1,0 +1,6 @@
+{
+  "appId": "com.myplayer.music",
+  "appName": "Player",
+  "webDir": "www",
+  "backgroundColor": "#000000"
+}
