@@ -81,13 +81,25 @@ button:active{transform:scale(.9)}.row:active{background:#ffffff14}
 .view.on{animation:fin .25s ease}@keyframes fin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .art{transition:transform .35s cubic-bezier(.3,1.3,.5,1)}.art.paused{transform:scale(.88)}
 .sheet.on>div{animation:up .25s ease}@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
-.mini{position:relative;overflow:hidden;touch-action:pan-y;transition:transform .2s}
+.mini{position:relative;overflow:hidden;touch-action:pan-y;transition:transform .2s,background .5s}
+@keyframes fin{from{opacity:0;transform:translate(var(--dx,0px),8px)}to{opacity:1;transform:none}}
 .mini .mp{position:absolute;left:0;bottom:0;height:2px;width:0;background:#fff}
 body{background:linear-gradient(180deg,var(--gradc,transparent) 0,var(--bg) 65%)}
 nav{background:transparent}nav [data-v=set]{order:-1}nav [data-v=lib]{order:1}
+nav{order:-1;border:0;padding:6px 8px 0;background:transparent}
+nav button{flex:1;padding:12px 0 10px;font-size:15px;font-weight:600;color:var(--mut);display:block;position:relative;transition:font-size .2s,color .2s}
+nav button svg{display:none}nav button.on{color:#fff;font-size:20px}
+nav button::after{content:"";position:absolute;left:25%;right:25%;bottom:0;height:3px;border-radius:2px;background:var(--active);transform:scaleX(0);transition:transform .25s}
+nav button.on::after{transform:scaleX(1)}
+.mini{margin-bottom:calc(6px + env(safe-area-inset-bottom))}
+.mos{width:100%;height:100%;display:grid;grid-template:1fr 1fr/1fr 1fr;overflow:hidden}.mos i{background:center/cover}
+.chips{display:flex;gap:12px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;width:96px}.chip .th{width:96px;height:96px;border-radius:6px;background:var(--card);overflow:hidden;display:grid;place-items:center;color:var(--mut);border:2px solid transparent}
+.chip.on .th{border-color:var(--active)}.chip.on b{color:var(--active)}
+.chip b{display:block;font-size:13px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style></head><body>
 <main>
- <section class="view on" id="v-lib"><div class="hd"><h1>Your library</h1><button class="plus" id="newpl" aria-label="New playlist"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button></div><div class="sec"><h3>Playlists</h3></div><div id="pls"></div><div class="sec" id="songsec"><button class="tog" id="tog" aria-label="Show or hide songs"><svg viewBox="0 0 24 24" class="chev"><path d="M7 10l5 5 5-5z"/></svg>Songs</button><button class="add" id="add" style="margin:0;padding:8px 14px"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>Add music</button></div><input type="file" id="file" accept="audio/*,.mp3" multiple hidden><div id="list"></div></section>
+ <section class="view on" id="v-lib"><div class="hd"><h1>Your library</h1><button class="plus" id="newpl" aria-label="New playlist"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button></div><div class="sec"><h3>Playlists</h3></div><div id="pls"></div><div class="sec" id="songsec"><button class="tog" id="tog" aria-label="Show or hide songs"><svg viewBox="0 0 24 24" class="chev"><path d="M7 10l5 5 5-5z"/></svg>Songs</button><button class="add" id="add" style="margin:0;padding:8px 14px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 5L20.49 19zM9.5 14a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>Scan phone</button></div><input type="file" id="file" accept="audio/*,.mp3" multiple hidden><div id="list"></div></section>
 <section class="view" id="v-pl"><button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg></button><div class="phead"><div class="cover" id="pcover"></div><h2 id="pname"></h2><p id="pcount"></p></div><div class="pact"><button id="pedit" aria-label="Edit playlist"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg></button><button id="pdel" aria-label="Delete playlist"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg></button><button id="pshuf" aria-label="Shuffle"></button><button class="big" id="pplay" aria-label="Play playlist"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div><div id="plist"></div></section>
  <section class="view np" id="v-np">
   <div class="art paused" id="art"></div>
@@ -100,12 +112,13 @@ nav{background:transparent}nav [data-v=set]{order:-1}nav [data-v=lib]{order:1}
    <button class="pp" id="pp" aria-label="Play or pause"></button>
    <button class="skip" id="next" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
    <button id="rep" aria-label="Repeat"></button>
-  </div></section>
+  </div><div class="sec" style="margin-top:22px"><h3>Playlists</h3></div><div class="chips" id="npl"></div></section>
  <section class="view" id="v-set"><h1>Settings</h1>
   <div class="set"><label>Play button<input type="color" data-k="play"></label><small>The big circle button</small></div>
   <div class="set"><label>Highlights<input type="color" data-k="active"></label><small>Shuffle, repeat and the song that is playing</small></div>
   <div class="set"><label>Progress bar<input type="color" data-k="bar"></label></div>
   <div class="set"><label>Background glow<input type="color" data-k="grad"></label><small>Set to black to turn it off</small></div>
+  <div class="set"><label>Add files manually<button class="btn" id="addm" style="margin:0">Choose files</button></label><small>Use this if scanning misses a song</small></div>
   <div class="set"><label>Quick colors</label><div class="sw" id="sw"></div></div>
   <button class="btn" id="reset">Reset colors</button><button class="btn" id="clear">Delete all songs and playlists</button>
  </section>
@@ -126,7 +139,7 @@ const I={play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',pause:'
  eq:'<svg class="eq" viewBox="0 0 24 24"><path d="M4 12h3v8H4zm6.500-8h3v16h-3zM17 8h3v12h-3z"/></svg>'};
 const COLORS=['#1ed760','#1db4ff','#ff3d71','#ff9f1a','#a855f7','#ffe14d','#ffffff'];
 const DEF={play:'#1ed760',active:'#1ed760',bar:'#1ed760',grad:'#1ed760'};
-let songs=[],pls=[],queue=[],qi=-1,openPl=null,qsrc=null,showSongs=true,shuf=false,rep=0,db,cfg={...DEF},urls={};
+let songs=[],pls=[],queue=[],qi=-1,openPl=null,qsrc=null,hist=[],curId=null,showSongs=true,shuf=false,rep=0,db,cfg={...DEF},urls={};
 
 /* ---- storage ---- */
 function openDB(){return new Promise((ok,no)=>{const r=indexedDB.open('player',2);r.onupgradeneeded=()=>{const d=r.result;for(const n of['songs','playlists'])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id',autoIncrement:true})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
@@ -161,13 +174,13 @@ const sRow=(s,i,x)=>`<div class="row${s.id===playing()?' cur':''}" data-i="${i}"
 const plSongs=p=>p.songIds.map(id=>songs.find(s=>s.id===id)).filter(Boolean);
 const coverURL=p=>{const s=plSongs(p).find(s=>s.art);return s?artURL(s):''};
 function render(){
- $('#pls').innerHTML=pls.length?pls.map(p=>{const u=coverURL(p),n=plSongs(p).length;return `<div class="row pl" data-p="${p.id}"><div class="thumb" style="${u?`background-image:url(${u})`:''}">${u?'':I.note}</div><div class="t"><b>${esc(p.name)}</b><span>${n} ${n===1?'song':'songs'}</span></div></div>`}).join(''):'<div class="empty" style="padding:14px 0">No playlists yet. Tap + to make one.</div>';
+ $('#pls').innerHTML=pls.length?pls.map(p=>{const n=plSongs(p).length;return `<div class="row pl" data-p="${p.id}"><div class="thumb">${coverHTML(p)}</div><div class="t"><b>${esc(p.name)}</b><span>${n} ${n===1?'song':'songs'}</span></div></div>`}).join(''):'<div class="empty" style="padding:14px 0">No playlists yet. Tap + to make one.</div>';
  $('#songsec').classList.toggle('closed',!showSongs);
  const L=$('#list');L.style.display=showSongs?'':'none';
- L.innerHTML=songs.length?songs.map((s,i)=>sRow(s,i,`<button class="x" data-d="${s.id}" aria-label="Remove">${I.del}</button>`)).join(''):'<div class="empty">No songs yet.<br>Tap Add music and choose your MP3 files.<br>They are saved on this device and work offline.</div>';
- if(openPl)renderPl()}
+ L.innerHTML=songs.length?songs.map((s,i)=>sRow(s,i,`<button class="x" data-d="${s.id}" aria-label="Remove">${I.del}</button>`)).join(''):'<div class="empty">No songs yet.<br>Tap Scan phone to find your music.<br>They are saved on this device and work offline.</div>';
+ renderNpl();if(openPl)renderPl()}
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-$('#add').onclick=()=>$('#file').click();
+$('#add').onclick=scan;$('#addm').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{
  for(const f of e.target.files){const t=await tags(f);
   await tx('readwrite',s=>s.add({file:f,title:t.title||f.name.replace(/\.[^.]+$/,''),artist:t.artist||'Unknown artist',album:t.album||'',art:t.art||null}))}
@@ -180,15 +193,15 @@ $('#list').onclick=async e=>{
 
 /* ---- playback ---- */
 let curURL;
-function go(i){
- if(i<0||i>=queue.length)return;qi=i;
- if(curURL)URL.revokeObjectURL(curURL);curURL=URL.createObjectURL(queue[i].file);
+function go(i,np){
+ if(i<0||i>=queue.length)return;if(!np&&curId!=null){hist.push({id:curId});if(hist.length>200)hist.shift()}qi=i;curId=queue[i].id;
+ if(curURL)URL.revokeObjectURL(curURL);curURL=queue[i].file?URL.createObjectURL(queue[i].file):Capacitor.convertFileSrc(queue[i].path);
  au.src=curURL;au.play().catch(()=>{});info();render()}
 function info(){
  const s=queue[qi],a=s&&artURL(s);
  $('#title').textContent=s?s.title:'Nothing playing';$('#artist').textContent=s?s.artist:'Add songs in Library';
  $('#art').style.backgroundImage=a?`url(${a})`:'';$('#mthumb').style.backgroundImage=a?`url(${a})`:'';
- if(s&&$('#mini').animate)$('#mini').animate([{opacity:.4,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:220});$('#mt').textContent=s?s.title:'';$('#ma').textContent=s?s.artist:'';$('#mini').classList.toggle('on',!!s&&!$('#v-np').classList.contains('on'));
+ if(s&&$('#mini').animate)$('#mini').animate([{opacity:.4,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:220});avgC(s||{}).then(c=>{$('#mini').style.background=c?'rgb('+c+')':''});$('#mt').textContent=s?s.title:'';$('#ma').textContent=s?s.artist:'';$('#mini').classList.toggle('on',!!s&&!$('#v-np').classList.contains('on'));
  if('mediaSession'in navigator&&s)navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:s.album,artwork:s.art?[{src:a,sizes:'512x512',type:s.art.type}]:[]})}
 function next(auto){
  if(!queue.length)return;
@@ -197,7 +210,7 @@ function next(auto){
  if(shuf&&queue.length>1){do n=Math.floor(Math.random()*queue.length);while(n===qi)}
  else{n=qi+1;if(n>=queue.length){if(auto&&rep===0){au.pause();au.currentTime=0;return}n=0}}
  go(n)}
-function prev(){if(au.currentTime>3){au.currentTime=0;return}go(qi<=0?queue.length-1:qi-1)}
+function prev(){if(au.currentTime>3){au.currentTime=0;return}while(hist.length){const h=hist.pop(),k=queue.findIndex(x=>x.id===h.id);if(k>=0)return go(k,true)}go(qi<=0?queue.length-1:qi-1,true)}
 const toggle=()=>{if(qi<0&&songs.length){queue=songs.slice();qsrc='all';return go(0)}au.paused?au.play():au.pause()};
 $('#pp').onclick=$('#mpp').onclick=toggle;$('#next').onclick=()=>next(false);$('#prev').onclick=prev;
 $('#shuf').onclick=()=>{shuf=!shuf;ui();save()};
@@ -220,9 +233,9 @@ $('#pshuf').innerHTML=$('#shuf').innerHTML;$('#pshuf').onclick=$('#shuf').onclic
 $('#tog').onclick=()=>{showSongs=!showSongs;render();save()};
 function renderPl(){pplIcon();
  const p=pls.find(x=>x.id===openPl);if(!p){openPl=null;return}
- const l=plSongs(p),u=coverURL(p);
+ const l=plSongs(p);
  $('#pname').textContent=p.name;$('#pcount').textContent=l.length+(l.length===1?' song':' songs');
- $('#pcover').style.backgroundImage=u?`url(${u})`:'';$('#pcover').innerHTML=u?'':I.note;
+ $('#pcover').innerHTML=coverHTML(p);
  $('#plist').innerHTML=l.length?l.map((s,i)=>sRow(s,i,`<button class="x" data-r="${s.id}" aria-label="Remove from playlist">${I.del}</button>`)).join(''):'<div class="empty">This playlist is empty.<br>Tap the pencil to add songs.</div>'}
 $('#pls').onclick=e=>{const r=e.target.closest('[data-p]');if(r){openPl=+r.dataset.p;renderPl();show('pl')}};
 $('#back').onclick=()=>{openPl=null;show('lib')};
@@ -256,11 +269,54 @@ async function sync(){const s=queue[qi];if(!MP||!s)return;MP.update({title:s.tit
 au.onloadedmetadata=sync;
 if(MP)MP.addListener('action',e=>{const f={play:()=>au.play(),pause:()=>au.pause(),next:()=>next(false),prev:prev}[e.action];if(f)f()});
 
+let scanning=false;
+async function scan(){
+ if(!MP||!MP.scan){alert('Scanning only works in the installed app.');return}
+ if(scanning)return;scanning=true;const b=$('#add'),t=b.innerHTML;
+ try{
+  b.textContent='Scanning...';
+  const r=await MP.scan(),have=new Set(songs.map(x=>x.path).filter(Boolean)),fresh=r.songs.filter(x=>x.path&&!have.has(x.path));let n=0;
+  for(const x of fresh){
+   b.textContent='Adding '+(++n)+'/'+fresh.length;let art=null;
+   try{const bl=await(await fetch(Capacitor.convertFileSrc(x.path),{headers:{Range:'bytes=0-1500000'}})).blob();art=(await tags(bl)).art||null}catch(e){}
+   await tx('readwrite',q=>q.add({path:x.path,title:x.title||x.path.split('/').pop(),artist:x.artist,album:x.album||'',art}))}
+  await load();b.textContent=fresh.length?'Added '+fresh.length:'Nothing new'
+ }catch(e){b.textContent='Permission needed'}
+ setTimeout(()=>{b.innerHTML=t;scanning=false},2000)}
+
+/* ---- cover mosaic, playlist chips, status bar ---- */
+const mosC={};
+function coverHTML(p){
+ const sig=p.songIds.join(',');if(mosC[p.id]&&mosC[p.id].sig===sig)return mosC[p.id].h;
+ const l=plSongs(p).filter(s=>s.art);let h=I.note;
+ if(l.length){const seen=new Set(),pick=[];for(const s of l.sort(()=>Math.random()-.5)){if(!seen.has(s.art.size)){seen.add(s.art.size);pick.push(s)}if(pick.length===4)break}
+  h=pick.length<4?`<div class="mos" style="display:block;background:url(${artURL(pick[0])}) center/cover"></div>`:`<div class="mos">${pick.map(s=>`<i style="background-image:url(${artURL(s)})"></i>`).join('')}</div>`}
+ mosC[p.id]={sig,h};return h}
+function renderNpl(){const el=$('#npl');if(!el)return;
+ el.innerHTML=`<div class="chip${qsrc==='all'?' on':''}" data-p="all"><div class="th">${I.note}</div><b>All songs</b></div>`+pls.map(p=>`<div class="chip${qsrc===p.id?' on':''}" data-p="${p.id}"><div class="th">${coverHTML(p)}</div><b>${esc(p.name)}</b></div>`).join('')}
+$('#npl').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;const k=c.dataset.p;if(String(qsrc)===k&&qi>=0)return;
+ queue=k==='all'?songs.slice():plSongs(pls.find(p=>p.id===+k));qsrc=k==='all'?'all':+k;
+ if(queue.length)go(shuf?Math.floor(Math.random()*queue.length):0);renderNpl()};
+function bar(){try{if(!MP||!MP.bar)return;const h=cfg.grad.replace('#',''),f=n=>Math.round(parseInt(h.substr(n,2),16)*.333).toString(16).padStart(2,'0');MP.bar({color:'#'+f(0)+f(2)+f(4)})}catch(e){}}
+
+/* ---- art colour, tab swipe ---- */
+const colC={};
+function avgC(s){return new Promise(ok=>{if(!s.art)return ok(null);if(colC[s.id])return ok(colC[s.id]);const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=16;const x=c.getContext('2d');x.drawImage(im,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let r=0,g=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2]}const n=d.length/4;ok(colC[s.id]=[r/n,g/n,b/n].map(v=>Math.round(v*.65)))};im.onerror=()=>ok(null);im.src=artURL(s)})}
+const TABS=['set','np','lib'];let tx0=null,ty0=0;
+$('main').addEventListener('touchstart',e=>{if(e.target.closest('input[type=range],.chips'))tx0=null;else{tx0=e.touches[0].clientX;ty0=e.touches[0].clientY}},{passive:true});
+$('main').addEventListener('touchend',e=>{if(tx0==null)return;const dx=e.changedTouches[0].clientX-tx0,dy=e.changedTouches[0].clientY-ty0;tx0=null;
+ if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.5)return;
+ const cur=document.querySelector('.view.on').id.slice(2),R=document.documentElement.style;
+ R.setProperty('--dx',dx<0?'40px':'-40px');
+ if(cur==='pl'){if(dx>0){openPl=null;show('lib')}}
+ else{const j=TABS.indexOf(cur)+(dx<0?1:-1);if(j>=0&&j<3)show(TABS[j])}
+ setTimeout(()=>R.setProperty('--dx','0px'),300)},{passive:true});
+
 /* ---- tabs & settings ---- */
 function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='pl'?'lib':v)));$('#mini').classList.toggle('on',qi>=0&&v!=='np')}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 function save(){try{localStorage.setItem('cfg',JSON.stringify({...cfg,shuf,rep,showSongs}))}catch{}}
-function paint(){document.documentElement.style.setProperty('--gradc',cfg.grad+'55');for(const k in DEF){document.documentElement.style.setProperty('--'+k,cfg[k]);const i=document.querySelector(`[data-k=${k}]`);if(i)i.value=cfg[k]}}
+function paint(){document.documentElement.style.setProperty('--gradc',cfg.grad+'55');bar();for(const k in DEF){document.documentElement.style.setProperty('--'+k,cfg[k]);const i=document.querySelector(`[data-k=${k}]`);if(i)i.value=cfg[k]}}
 document.querySelectorAll('[data-k]').forEach(i=>i.oninput=()=>{cfg[i.dataset.k]=i.value;paint();save()});
 $('#sw').innerHTML=COLORS.map(c=>`<i data-c="${c}" style="background:${c}"></i>`).join('');
 $('#sw').onclick=e=>{const c=e.target.dataset.c;if(c){cfg={...cfg,play:c,active:c,bar:c};paint();save()}};
