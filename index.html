@@ -76,12 +76,21 @@ input[type=color]{width:44px;height:34px;border:0;background:none;padding:0}
 .sel .chk{background:var(--active);border-color:var(--active);color:#000}
 .chk svg{width:14px;height:14px;display:none}.sel .chk svg{display:block}
 .save{background:var(--play);color:#000;font-weight:700;padding:13px;border-radius:99px;margin-top:12px;width:100%}
+button,.row,.tog{transition:transform .12s,background .15s,opacity .15s}
+button:active{transform:scale(.9)}.row:active{background:#ffffff14}
+.view.on{animation:fin .25s ease}@keyframes fin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.art{transition:transform .35s cubic-bezier(.3,1.3,.5,1)}.art.paused{transform:scale(.88)}
+.sheet.on>div{animation:up .25s ease}@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.mini{position:relative;overflow:hidden;touch-action:pan-y;transition:transform .2s}
+.mini .mp{position:absolute;left:0;bottom:0;height:2px;width:0;background:#fff}
+body{background:linear-gradient(180deg,var(--gradc,transparent) 0,var(--bg) 65%)}
+nav{background:transparent}nav [data-v=set]{order:-1}nav [data-v=lib]{order:1}
 </style></head><body>
 <main>
  <section class="view on" id="v-lib"><div class="hd"><h1>Your library</h1><button class="plus" id="newpl" aria-label="New playlist"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button></div><div class="sec"><h3>Playlists</h3></div><div id="pls"></div><div class="sec" id="songsec"><button class="tog" id="tog" aria-label="Show or hide songs"><svg viewBox="0 0 24 24" class="chev"><path d="M7 10l5 5 5-5z"/></svg>Songs</button><button class="add" id="add" style="margin:0;padding:8px 14px"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>Add music</button></div><input type="file" id="file" accept="audio/*,.mp3" multiple hidden><div id="list"></div></section>
 <section class="view" id="v-pl"><button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg></button><div class="phead"><div class="cover" id="pcover"></div><h2 id="pname"></h2><p id="pcount"></p></div><div class="pact"><button id="pedit" aria-label="Edit playlist"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg></button><button id="pdel" aria-label="Delete playlist"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg></button><button id="pshuf" aria-label="Shuffle"></button><button class="big" id="pplay" aria-label="Play playlist"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div><div id="plist"></div></section>
  <section class="view np" id="v-np">
-  <div class="art" id="art"></div>
+  <div class="art paused" id="art"></div>
   <h2 id="title">Nothing playing</h2><p id="artist">Add songs in Library</p>
   <input type="range" id="seek" min="0" max="1000" value="0">
   <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
@@ -96,11 +105,12 @@ input[type=color]{width:44px;height:34px;border:0;background:none;padding:0}
   <div class="set"><label>Play button<input type="color" data-k="play"></label><small>The big circle button</small></div>
   <div class="set"><label>Highlights<input type="color" data-k="active"></label><small>Shuffle, repeat and the song that is playing</small></div>
   <div class="set"><label>Progress bar<input type="color" data-k="bar"></label></div>
+  <div class="set"><label>Background glow<input type="color" data-k="grad"></label><small>Set to black to turn it off</small></div>
   <div class="set"><label>Quick colors</label><div class="sw" id="sw"></div></div>
   <button class="btn" id="reset">Reset colors</button><button class="btn" id="clear">Delete all songs and playlists</button>
  </section>
 </main>
-<div class="mini" id="mini"><div class="thumb" id="mthumb"></div><div class="t" style="flex:1;min-width:0"><b id="mt"></b><span id="ma" style="color:var(--mut);font-size:13px"></span></div><button class="pp2" id="mpp"></button></div>
+<div class="mini" id="mini"><div class="thumb" id="mthumb"></div><div class="t" style="flex:1;min-width:0"><b id="mt"></b><span id="ma" style="color:var(--mut);font-size:13px"></span></div><button class="pp2" id="mpp"></button><i class="mp" id="mp"></i></div>
 <div class="sheet" id="sheet"><div><b id="sh-t" style="font-size:18px"></b><input type="text" id="sh-n" placeholder="Playlist name" maxlength="60"><div class="pick" id="pick"></div><button class="save" id="sh-ok">Save</button><button class="btn" id="sh-x" style="margin:8px 0 0;width:100%">Cancel</button></div></div>
 <nav>
  <button class="on" data-v="lib"><svg viewBox="0 0 24 24"><path d="M4 4h2v16H4zm4 0h2v16H8zm4.6.3 1.9-.5 4.4 15.9-1.9.5z"/></svg>Library</button>
@@ -115,8 +125,8 @@ const I={play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',pause:'
  del:'<svg viewBox="0 0 24 24"><path d="M19 6.400 17.600 5 12 10.600 6.400 5 5 6.400l5.600 5.600L5 17.600 6.400 19l5.600-5.600 5.600 5.600 1.400-1.400-5.600-5.600z"/></svg>',
  eq:'<svg class="eq" viewBox="0 0 24 24"><path d="M4 12h3v8H4zm6.500-8h3v16h-3zM17 8h3v12h-3z"/></svg>'};
 const COLORS=['#1ed760','#1db4ff','#ff3d71','#ff9f1a','#a855f7','#ffe14d','#ffffff'];
-const DEF={play:'#1ed760',active:'#1ed760',bar:'#1ed760'};
-let songs=[],pls=[],queue=[],qi=-1,openPl=null,showSongs=true,shuf=false,rep=0,db,cfg={...DEF},urls={};
+const DEF={play:'#1ed760',active:'#1ed760',bar:'#1ed760',grad:'#1ed760'};
+let songs=[],pls=[],queue=[],qi=-1,openPl=null,qsrc=null,showSongs=true,shuf=false,rep=0,db,cfg={...DEF},urls={};
 
 /* ---- storage ---- */
 function openDB(){return new Promise((ok,no)=>{const r=indexedDB.open('player',2);r.onupgradeneeded=()=>{const d=r.result;for(const n of['songs','playlists'])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id',autoIncrement:true})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})}
@@ -166,7 +176,7 @@ $('#list').onclick=async e=>{
  const d=e.target.closest('[data-d]');
  if(d){const id=+d.dataset.d;await tx('readwrite',s=>s.delete(id));for(const p of pls)if(p.songIds.includes(id)){p.songIds=p.songIds.filter(x=>x!==id);await tx('readwrite',s=>s.put(p),'playlists')}const was=playing();queue=queue.filter(s=>s.id!==id);
   if(was===id){au.pause();au.removeAttribute('src');qi=-1;info()}else qi=queue.findIndex(s=>s.id===was);await load();return}
- const r=e.target.closest('.row');if(r){queue=songs.slice();go(+r.dataset.i)}};
+ const r=e.target.closest('.row');if(r){queue=songs.slice();qsrc='all';go(+r.dataset.i)}};
 
 /* ---- playback ---- */
 let curURL;
@@ -178,7 +188,7 @@ function info(){
  const s=queue[qi],a=s&&artURL(s);
  $('#title').textContent=s?s.title:'Nothing playing';$('#artist').textContent=s?s.artist:'Add songs in Library';
  $('#art').style.backgroundImage=a?`url(${a})`:'';$('#mthumb').style.backgroundImage=a?`url(${a})`:'';
- $('#mt').textContent=s?s.title:'';$('#ma').textContent=s?s.artist:'';$('#mini').classList.toggle('on',!!s&&!$('#v-np').classList.contains('on'));
+ if(s&&$('#mini').animate)$('#mini').animate([{opacity:.4,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:220});$('#mt').textContent=s?s.title:'';$('#ma').textContent=s?s.artist:'';$('#mini').classList.toggle('on',!!s&&!$('#v-np').classList.contains('on'));
  if('mediaSession'in navigator&&s)navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:s.album,artwork:s.art?[{src:a,sizes:'512x512',type:s.art.type}]:[]})}
 function next(auto){
  if(!queue.length)return;
@@ -188,16 +198,16 @@ function next(auto){
  else{n=qi+1;if(n>=queue.length){if(auto&&rep===0){au.pause();au.currentTime=0;return}n=0}}
  go(n)}
 function prev(){if(au.currentTime>3){au.currentTime=0;return}go(qi<=0?queue.length-1:qi-1)}
-const toggle=()=>{if(qi<0&&songs.length){queue=songs.slice();return go(0)}au.paused?au.play():au.pause()};
+const toggle=()=>{if(qi<0&&songs.length){queue=songs.slice();qsrc='all';return go(0)}au.paused?au.play():au.pause()};
 $('#pp').onclick=$('#mpp').onclick=toggle;$('#next').onclick=()=>next(false);$('#prev').onclick=prev;
 $('#shuf').onclick=()=>{shuf=!shuf;ui();save()};
 $('#rep').onclick=()=>{rep=(rep+1)%3;ui();save()};
 $('#mini').onclick=e=>{if(!e.target.closest('#mpp'))show('np')};
 au.onended=()=>next(true);
-au.onplay=au.onpause=()=>{const h=au.paused?I.play:I.pause;$('#pp').innerHTML=h;$('#mpp').innerHTML=h;document.querySelectorAll('.eq').forEach(x=>x.style.opacity=au.paused?.4:1)};
+au.onplay=au.onpause=()=>{const h=au.paused?I.play:I.pause;$('#pp').innerHTML=h;$('#mpp').innerHTML=h;document.querySelectorAll('.eq').forEach(x=>x.style.opacity=au.paused?.4:1);$('#art').classList.toggle('paused',au.paused);pplIcon();sync()};
 const fmt=t=>isFinite(t)?Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0'):'0:00';
 let drag=false;
-au.ontimeupdate=()=>{if(drag||!au.duration)return;const p=au.currentTime/au.duration*1000;$('#seek').value=p;$('#seek').style.setProperty('--p',p/10+'%');$('#cur').textContent=fmt(au.currentTime);$('#dur').textContent=fmt(au.duration)};
+au.ontimeupdate=()=>{if(drag||!au.duration)return;const p=au.currentTime/au.duration*1000;$('#seek').value=p;$('#seek').style.setProperty('--p',p/10+'%');$('#cur').textContent=fmt(au.currentTime);$('#dur').textContent=fmt(au.duration);$('#mp').style.width=p/10+'%'};
 $('#seek').oninput=e=>{drag=true;const p=e.target.value;e.target.style.setProperty('--p',p/10+'%');$('#cur').textContent=fmt(au.duration*p/1000)};
 $('#seek').onchange=e=>{au.currentTime=au.duration*e.target.value/1000;drag=false};
 if('mediaSession'in navigator){const m=navigator.mediaSession;m.setActionHandler('play',()=>au.play());m.setActionHandler('pause',()=>au.pause());m.setActionHandler('nexttrack',()=>next(false));m.setActionHandler('previoustrack',prev)}
@@ -208,7 +218,7 @@ I.note=`<svg viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 3v1
 const CHK=`<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>`;
 $('#pshuf').innerHTML=$('#shuf').innerHTML;$('#pshuf').onclick=$('#shuf').onclick;
 $('#tog').onclick=()=>{showSongs=!showSongs;render();save()};
-function renderPl(){
+function renderPl(){pplIcon();
  const p=pls.find(x=>x.id===openPl);if(!p){openPl=null;return}
  const l=plSongs(p),u=coverURL(p);
  $('#pname').textContent=p.name;$('#pcount').textContent=l.length+(l.length===1?' song':' songs');
@@ -219,8 +229,8 @@ $('#back').onclick=()=>{openPl=null;show('lib')};
 $('#plist').onclick=async e=>{
  const p=pls.find(x=>x.id===openPl),m=e.target.closest('[data-r]');
  if(m){p.songIds=p.songIds.filter(x=>x!==+m.dataset.r);await tx('readwrite',s=>s.put(p),'playlists');render();return}
- const r=e.target.closest('.row');if(r){queue=plSongs(p);go(+r.dataset.i)}};
-$('#pplay').onclick=()=>{const p=pls.find(x=>x.id===openPl);queue=plSongs(p);if(queue.length)go(shuf?Math.floor(Math.random()*queue.length):0)};
+ const r=e.target.closest('.row');if(r){queue=plSongs(p);qsrc=p.id;go(+r.dataset.i)}};
+$('#pplay').onclick=()=>{if(qsrc===openPl&&qi>=0)return toggle();const p=pls.find(x=>x.id===openPl);queue=plSongs(p);qsrc=openPl;if(queue.length)go(shuf?Math.floor(Math.random()*queue.length):0)};
 $('#pdel').onclick=async()=>{const p=pls.find(x=>x.id===openPl);if(!p||!confirm('Delete "'+p.name+'"? Your songs stay in the library.'))return;await tx('readwrite',s=>s.delete(p.id),'playlists');openPl=null;await load();show('lib')};
 let shCb,shSel=new Set();
 function sheet(title,name,sel,cb){
@@ -233,14 +243,27 @@ $('#sh-ok').onclick=async()=>{const n=$('#sh-n').value.trim();if(!n){$('#sh-n').
 $('#newpl').onclick=()=>sheet('New playlist','My playlist '+(pls.length+1),[],async(n,ids)=>{await tx('readwrite',s=>s.add({name:n,songIds:ids}),'playlists');await load()});
 $('#pedit').onclick=()=>{const p=pls.find(x=>x.id===openPl);sheet('Edit playlist',p.name,p.songIds,async(n,ids)=>{p.name=n;p.songIds=ids;await tx('readwrite',s=>s.put(p),'playlists');await load()})};
 
+/* ---- mini-player swipe, native controls ---- */
+function pplIcon(){$('#pplay').innerHTML=(!au.paused&&qsrc===openPl)?I.pause:I.play}
+let sx=null;const M=$('#mini');
+M.ontouchstart=e=>{sx=e.touches[0].clientX;M.style.transition='none'};
+M.ontouchmove=e=>{if(sx!=null)M.style.transform=`translateX(${(e.touches[0].clientX-sx)/2}px)`};
+M.ontouchend=e=>{const d=e.changedTouches[0].clientX-sx;sx=null;M.style.transition='';M.style.transform='';if(d<-60)next(false);else if(d>60)prev()};
+const MP=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.Music,artC={};
+function artB64(s){if(!s.art)return Promise.resolve('');if(artC[s.id]!==undefined)return Promise.resolve(artC[s.id]);
+ return new Promise(ok=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=300;c.getContext('2d').drawImage(im,0,0,300,300);ok(artC[s.id]=c.toDataURL('image/jpeg',.8).split(',')[1])};im.onerror=()=>ok('');im.src=artURL(s)})}
+async function sync(){const s=queue[qi];if(!MP||!s)return;MP.update({title:s.title,artist:s.artist,playing:!au.paused,pos:Math.floor(au.currentTime*1000),dur:isFinite(au.duration)?Math.floor(au.duration*1000):0,art:await artB64(s)}).catch(()=>{})}
+au.onloadedmetadata=sync;
+if(MP)MP.addListener('action',e=>{const f={play:()=>au.play(),pause:()=>au.pause(),next:()=>next(false),prev:prev}[e.action];if(f)f()});
+
 /* ---- tabs & settings ---- */
 function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='pl'?'lib':v)));$('#mini').classList.toggle('on',qi>=0&&v!=='np')}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 function save(){try{localStorage.setItem('cfg',JSON.stringify({...cfg,shuf,rep,showSongs}))}catch{}}
-function paint(){for(const k in DEF){document.documentElement.style.setProperty('--'+k,cfg[k]);const i=document.querySelector(`[data-k=${k}]`);if(i)i.value=cfg[k]}}
+function paint(){document.documentElement.style.setProperty('--gradc',cfg.grad+'55');for(const k in DEF){document.documentElement.style.setProperty('--'+k,cfg[k]);const i=document.querySelector(`[data-k=${k}]`);if(i)i.value=cfg[k]}}
 document.querySelectorAll('[data-k]').forEach(i=>i.oninput=()=>{cfg[i.dataset.k]=i.value;paint();save()});
 $('#sw').innerHTML=COLORS.map(c=>`<i data-c="${c}" style="background:${c}"></i>`).join('');
-$('#sw').onclick=e=>{const c=e.target.dataset.c;if(c){cfg={play:c,active:c,bar:c};paint();save()}};
+$('#sw').onclick=e=>{const c=e.target.dataset.c;if(c){cfg={...cfg,play:c,active:c,bar:c};paint();save()}};
 $('#reset').onclick=()=>{cfg={...DEF};paint();save()};
 $('#clear').onclick=async()=>{if(!confirm('Delete every song and playlist from this app? Your original files are not touched.'))return;await tx('readwrite',s=>s.clear());await tx('readwrite',s=>s.clear(),'playlists');au.pause();au.removeAttribute('src');queue=[];qi=-1;openPl=null;show('set');await load();info()};
 
