@@ -17,6 +17,128 @@ jobs:
       - run: npm install
       - run: mkdir -p www && cp index.html www/
       - run: npx cap add android
+      - name: Add native media controls
+        run: |
+          D=android/app/src/main/java/com/myplayer/music
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><application#' $M
+          sed -i 's#</application>#<service android:name=".MusicService" android:foregroundServiceType="mediaPlayback" android:exported="false"/></application>#' $M
+          cat > $D/MainActivity.java <<'EOF'
+          package com.myplayer.music;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override public void onCreate(Bundle b) {
+              registerPlugin(MusicPlugin.class);
+              super.onCreate(b);
+              if (android.os.Build.VERSION.SDK_INT >= 33) requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+            }
+          }
+          EOF
+          cat > $D/MusicPlugin.java <<'EOF'
+          package com.myplayer.music;
+          import android.content.Intent;
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          @CapacitorPlugin(name = "Music")
+          public class MusicPlugin extends Plugin {
+            static MusicPlugin inst;
+            @Override public void load() { inst = this; }
+            @PluginMethod public void update(PluginCall c) {
+              Intent i = new Intent(getContext(), MusicService.class);
+              i.putExtra("title", c.getString("title", ""));
+              i.putExtra("artist", c.getString("artist", ""));
+              i.putExtra("playing", c.getBoolean("playing", false));
+              i.putExtra("pos", (long) c.getInt("pos", 0));
+              i.putExtra("dur", (long) c.getInt("dur", 0));
+              i.putExtra("art", c.getString("art", ""));
+              if (MusicService.inst != null) MusicService.inst.apply(i);
+              else getContext().startForegroundService(i);
+              c.resolve();
+            }
+            static void fire(String a) {
+              if (inst != null) { JSObject o = new JSObject(); o.put("action", a); inst.notifyListeners("action", o); }
+            }
+          }
+          EOF
+          cat > $D/MusicService.java <<'EOF'
+          package com.myplayer.music;
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.Service;
+          import android.content.Intent;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.drawable.Icon;
+          import android.media.MediaMetadata;
+          import android.media.session.MediaSession;
+          import android.media.session.PlaybackState;
+          import android.os.Build;
+          import android.os.IBinder;
+          import android.util.Base64;
+          public class MusicService extends Service {
+            static MusicService inst;
+            MediaSession ms; Bitmap bmp; String art = "";
+            public IBinder onBind(Intent i) { return null; }
+            public void onCreate() {
+              super.onCreate(); inst = this;
+              getSystemService(NotificationManager.class).createNotificationChannel(new NotificationChannel("music", "Playback", NotificationManager.IMPORTANCE_LOW));
+              ms = new MediaSession(this, "Player");
+              ms.setCallback(new MediaSession.Callback() {
+                public void onPlay() { MusicPlugin.fire("play"); }
+                public void onPause() { MusicPlugin.fire("pause"); }
+                public void onSkipToNext() { MusicPlugin.fire("next"); }
+                public void onSkipToPrevious() { MusicPlugin.fire("prev"); }
+              });
+              ms.setActive(true);
+            }
+            public int onStartCommand(Intent i, int f, int id) {
+              if (i == null) return START_NOT_STICKY;
+              if (i.getAction() != null) { MusicPlugin.fire(i.getAction()); return START_STICKY; }
+              apply(i); return START_STICKY;
+            }
+            PendingIntent pi(String a) {
+              return PendingIntent.getService(this, a.hashCode(), new Intent(this, MusicService.class).setAction(a), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            }
+            Notification.Action act(int ic, String l, String a) {
+              return new Notification.Action.Builder(Icon.createWithResource(this, ic), l, pi(a)).build();
+            }
+            void apply(Intent i) {
+              String t = i.getStringExtra("title"), ar = i.getStringExtra("artist"), a = i.getStringExtra("art");
+              boolean pl = i.getBooleanExtra("playing", false);
+              long pos = i.getLongExtra("pos", 0), dur = i.getLongExtra("dur", 0);
+              if (a != null && !a.equals(art)) {
+                art = a; bmp = null;
+                try { if (!a.isEmpty()) { byte[] d = Base64.decode(a, 0); bmp = BitmapFactory.decodeByteArray(d, 0, d.length); } } catch (Exception e) {}
+              }
+              MediaMetadata.Builder m = new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, t).putString(MediaMetadata.METADATA_KEY_ARTIST, ar).putLong(MediaMetadata.METADATA_KEY_DURATION, dur);
+              if (bmp != null) m.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bmp);
+              ms.setMetadata(m.build());
+              ms.setPlaybackState(new PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS)
+                .setState(pl ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED, pos, pl ? 1f : 0f).build());
+              Notification.Builder b = new Notification.Builder(this, "music")
+                .setSmallIcon(android.R.drawable.ic_media_play).setContentTitle(t).setContentText(ar)
+                .setVisibility(Notification.VISIBILITY_PUBLIC).setOngoing(pl)
+                .setContentIntent(PendingIntent.getActivity(this, 0, getPackageManager().getLaunchIntentForPackage(getPackageName()), PendingIntent.FLAG_IMMUTABLE))
+                .addAction(act(android.R.drawable.ic_media_previous, "Previous", "prev"))
+                .addAction(act(pl ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play, pl ? "Pause" : "Play", pl ? "pause" : "play"))
+                .addAction(act(android.R.drawable.ic_media_next, "Next", "next"))
+                .setStyle(new Notification.MediaStyle().setMediaSession(ms.getSessionToken()).setShowActionsInCompactView(0, 1, 2));
+              if (bmp != null) b.setLargeIcon(bmp);
+              Notification n = b.build();
+              if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+              else startForeground(1, n);
+            }
+            public void onTaskRemoved(Intent r) { stopSelf(); }
+            public void onDestroy() { inst = null; ms.release(); super.onDestroy(); }
+          }
+          EOF
       - run: npx cap sync android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
