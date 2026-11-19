@@ -117,6 +117,7 @@ nav button.on::after{transform:scaleX(1)}
 .sheet>div{border-radius:28px 28px 0 0}.sheet input[type=text]{border-radius:14px}
 input[type=color]{border-radius:10px}.row{border-radius:14px;padding:8px 6px;margin:0 -6px}
 .set{border-radius:0}.empty{border-radius:16px}
+.mini.big{height:176px}.mx{margin-top:4px}.view.on{will-change:transform}
 </style></head><body>
 <main>
  <section class="view on" id="v-lib"><div class="hd"><h1>Your library</h1><button class="plus" id="newpl" aria-label="New playlist"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button></div><div class="seg" id="seg"><button class="on" data-s="pl">Playlists</button><button data-s="songs">Songs</button></div><div id="lpl"><div id="pls"></div></div><div id="lsg" style="display:none"><div class="sec" id="songsec"><button class="tog" id="tog" aria-label="Show or hide songs"><svg viewBox="0 0 24 24" class="chev"><path d="M7 10l5 5 5-5z"/></svg>Songs</button><button class="add" id="add" style="margin:0;padding:8px 14px"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79l5 5L20.49 19zM9.5 14a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>Scan phone</button></div><input type="file" id="file" accept="audio/*,.mp3" multiple hidden><div id="list"></div></div></section>
@@ -187,7 +188,7 @@ async function tags(file){
  }}catch(e){}return o}
 
 /* ---- library ---- */
-async function load(){songs=await tx('readonly',s=>s.getAll());pls=await tx('readonly',s=>s.getAll(),'playlists');render()}
+async function load(){songs=(await tx('readonly',s=>s.getAll())).sort((a,b)=>(b.added||0)-(a.added||0)||b.id-a.id);pls=await tx('readonly',s=>s.getAll(),'playlists');render()}
 function artURL(s){if(!s.art)return'';return urls[s.id]||(urls[s.id]=URL.createObjectURL(s.art))}
 const playing=()=>queue[qi]&&queue[qi].id;
 const sRow=(s,i,x)=>`<div class="row${s.id===playing()?' cur':''}" data-i="${i}"><div class="thumb" style="${s.art?`background-image:url(${artURL(s)})`:''}"></div><div class="t"><b>${esc(s.title)}</b><span>${esc(s.artist)}</span></div>${I.eq}${x}</div>`;
@@ -203,7 +204,7 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 $('#add').onclick=scan;$('#addm').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{
  for(const f of e.target.files){const t=await tags(f);
-  await tx('readwrite',s=>s.add({file:f,title:t.title||f.name.replace(/\.[^.]+$/,''),artist:t.artist||'Unknown artist',album:t.album||'',art:t.art||null}))}
+  await tx('readwrite',s=>s.add({file:f,added:f.lastModified,title:t.title||f.name.replace(/\.[^.]+$/,''),artist:t.artist||'Unknown artist',album:t.album||'',art:t.art||null}))}
  e.target.value='';await load()};
 $('#list').onclick=async e=>{
  const d=e.target.closest('[data-d]');
@@ -301,10 +302,11 @@ async function scan(){
  try{
   b.textContent='Scanning...';
   const r=await MP.scan(),have=new Set(songs.map(x=>x.path).filter(Boolean)),fresh=r.songs.filter(x=>x.path&&!have.has(x.path));let n=0;
+  for(const x of r.songs){const o=songs.find(y=>y.path===x.path);if(o&&x.added&&o.added!==x.added){o.added=x.added;await tx('readwrite',q=>q.put(o))}}
   for(const x of fresh){
    b.textContent='Adding '+(++n)+'/'+fresh.length;let art=null;
    try{const bl=await(await fetch(Capacitor.convertFileSrc(x.path),{headers:{Range:'bytes=0-1500000'}})).blob();art=(await tags(bl)).art||null}catch(e){}
-   await tx('readwrite',q=>q.add({path:x.path,title:x.title||x.path.split('/').pop(),artist:x.artist,album:x.album||'',art}))}
+   await tx('readwrite',q=>q.add({path:x.path,added:x.added,title:x.title||x.path.split('/').pop(),artist:x.artist,album:x.album||'',art}))}
   await load();b.textContent=fresh.length?'Added '+fresh.length:'Nothing new'
  }catch(e){b.textContent='Permission needed'}
  setTimeout(()=>{b.innerHTML=t;scanning=false},2000)}
@@ -336,28 +338,41 @@ $('#mseek').onchange=e=>{au.currentTime=au.duration*e.target.value/1000;mdrag=fa
 /* ---- art colour, tab swipe ---- */
 const colC={};
 function avgC(s){return new Promise(ok=>{if(!s.art)return ok(null);if(colC[s.id])return ok(colC[s.id]);const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=16;const x=c.getContext('2d');x.drawImage(im,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let r=0,g=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2]}const n=d.length/4;ok(colC[s.id]=[r/n,g/n,b/n].map(v=>Math.round(v*.65)))};im.onerror=()=>ok(null);im.src=artURL(s)})}
-const TABS=['set','np','lib'];let tx0=null,ty0=0;
-$('main').addEventListener('touchstart',e=>{if(e.target.closest('input[type=range]'))tx0=null;else{tx0=e.touches[0].clientX;ty0=e.touches[0].clientY}},{passive:true});
-$('main').addEventListener('touchend',e=>{if(tx0==null)return;const dx=e.changedTouches[0].clientX-tx0,dy=e.changedTouches[0].clientY-ty0;tx0=null;
- if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.5)return;
- const cur=document.querySelector('.view.on').id.slice(2),R=document.documentElement.style;
- R.setProperty('--dx',dx<0?'40px':'-40px');
- if(cur==='pl'){if(dx>0){openPl=null;show('lib')}}
- else{const j=TABS.indexOf(cur)+(dx<0?1:-1);if(j>=0&&j<3)show(TABS[j])}
- setTimeout(()=>R.setProperty('--dx','0px'),300)},{passive:true});
 
 /* ---- tabs & settings ---- */
-const ORD={set:0,np:1,lib:2,pl:3};let curV='lib';
-function show(v){
- const from=$('#v-'+curV),to=$('#v-'+v),dir=ORD[v]-ORD[curV];
+const ORD={set:0,np:1,lib:2,pl:3},TABS=['set','np','lib'],MN=$('main');let curV='lib',stok=0,dg=null;
+const clr=x=>{x.style.transition='';x.style.transform=''};
+function show(v,fx){
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='pl'?'lib':v)));
  $('#mini').classList.toggle('on',qi>=0&&v!=='np');
- if(from!==to){
-  document.querySelectorAll('.view.on').forEach(x=>{if(x!==from&&x!==to)x.classList.remove('on')});
-  to.classList.add('on');const o={duration:420,easing:'cubic-bezier(.25,.8,.25,1)'};
-  from.animate([{transform:'none',opacity:1},{transform:`translateX(${-dir*35}%)`,opacity:0}],o).onfinish=()=>{if('v-'+curV!==from.id)from.classList.remove('on')};
-  to.animate([{transform:`translateX(${dir*35}%)`,opacity:0},{transform:'none',opacity:1}],o)}
- curV=v}
+ if(v===curV)return;
+ const from=$('#v-'+curV),to=$('#v-'+v),w=MN.clientWidth,dir=ORD[v]>ORD[curV]?1:-1,x0=fx||0;
+ document.querySelectorAll('.view.on').forEach(x=>{if(x!==from&&x!==to){x.classList.remove('on');clr(x)}});
+ to.classList.add('on');
+ from.style.transition=to.style.transition='none';
+ from.style.transform=`translateX(${x0}px)`;to.style.transform=`translateX(${dir*w+x0}px)`;
+ void to.offsetWidth;
+ const t='transform .22s cubic-bezier(.2,.8,.25,1)';from.style.transition=to.style.transition=t;
+ from.style.transform=`translateX(${-dir*w}px)`;to.style.transform='translateX(0px)';
+ curV=v;const k=++stok;
+ setTimeout(()=>{if(k!==stok)return;from.classList.remove('on');clr(from);clr(to)},240)}
+const nb=dx=>{if(curV==='pl')return dx>0?'lib':null;return TABS[TABS.indexOf(curV)+(dx<0?1:-1)]||null};
+MN.addEventListener('touchstart',e=>{dg=e.target.closest('input[type=range]')?null:{x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now(),ax:null,to:null,dx:0}},{passive:true});
+MN.addEventListener('touchmove',e=>{if(!dg)return;const dx=e.touches[0].clientX-dg.x,dy=e.touches[0].clientY-dg.y;
+ if(!dg.ax){if(Math.abs(dx)<10&&Math.abs(dy)<10)return;dg.ax=Math.abs(dx)>Math.abs(dy)*1.2?'x':'y'}
+ if(dg.ax!=='x')return;
+ const want=nb(dx),w=MN.clientWidth,from=$('#v-'+curV);
+ if(want!==dg.to){if(dg.to){const o=$('#v-'+dg.to);o.classList.remove('on');clr(o)}dg.to=want;if(want){const o=$('#v-'+want);o.classList.add('on');o.style.transition='none'}}
+ from.style.transition='none';from.style.transform=`translateX(${dg.to?dx:dx*.25}px)`;
+ if(dg.to)$('#v-'+dg.to).style.transform=`translateX(${dx+(dx<0?w:-w)}px)`;
+ dg.dx=dx},{passive:true});
+function endDrag(ok){const d=dg;dg=null;if(!d||d.ax!=='x')return;
+ const w=MN.clientWidth,dx=d.dx,sp=Math.abs(dx)/Math.max(1,Date.now()-d.t);
+ if(ok&&d.to&&(Math.abs(dx)>w*.25||sp>.5)){if(curV==='pl')openPl=null;show(d.to,dx);return}
+ const from=$('#v-'+curV),t='transform .2s ease-out';from.style.transition=t;from.style.transform='translateX(0px)';
+ if(d.to){const o=$('#v-'+d.to);o.style.transition=t;o.style.transform=`translateX(${dx<0?w:-w}px)`;setTimeout(()=>{if(curV!==d.to){o.classList.remove('on');clr(o)}},220)}
+ setTimeout(()=>clr(from),220)}
+MN.addEventListener('touchend',()=>endDrag(true));MN.addEventListener('touchcancel',()=>endDrag(false));
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 function save(){try{localStorage.setItem('cfg',JSON.stringify({...cfg,shuf,rep,showSongs,recent}))}catch{}}
 function paint(){document.documentElement.style.setProperty('--gradc',cfg.grad+'55');bar();for(const k in DEF){document.documentElement.style.setProperty('--'+k,cfg[k]);const i=document.querySelector(`[data-k=${k}]`);if(i)i.value=cfg[k]}}
